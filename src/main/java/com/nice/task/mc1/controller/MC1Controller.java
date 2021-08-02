@@ -106,7 +106,7 @@ public class MC1Controller {
     }
 
     /**
-     * Create and send message to given destination in opened web socket
+     * Create and send message to given destination using SimMessagingTemplate
      */
     private void createAndSendMessage(long sessionId) {
         MessageDTO message = messageService.createMessage(sessionId);
