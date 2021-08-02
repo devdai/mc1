@@ -5,13 +5,11 @@ import com.nice.task.mc1.entity.InterruptedSession;
 import com.nice.task.mc1.repository.InterruptedSessionRepository;
 import com.nice.task.mc1.service.MessageService;
 import lombok.extern.slf4j.Slf4j;
-import org.hibernate.service.spi.InjectService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.util.StopWatch;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -20,8 +18,6 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
 
 @RestController
 @Slf4j
@@ -87,19 +83,19 @@ public class MC1Controller {
         Duration executionTime = Duration.between(messageDTO.getMC1_timestamp().toInstant(), messageDTO.getEnd_timestamp().toInstant());
         passedSeconds += executionTime.toSeconds();
 
+        //if we have time to run another iteration. passedSeconds will reset on the end of the execution
         if (passedSeconds < rotationInterval) {
             InterruptedSession session = sessionRepository.findInterruptedSessionBySessionId(messageDTO.getSessionId());
 
             //if InterruptedSession entity exists and it is marked as interrupted, just log end execution
             if (session != null && session.isInterrupted()) {
-                logEndExecution(messageDTO.getSessionId());
+                logEndExecutionAndResetTime(messageDTO.getSessionId());
             } else {
                 createAndSendMessage(messageDTO.getSessionId());
             }
         }
         if (passedSeconds >= rotationInterval) {
-            logEndExecution(messageDTO.getSessionId());
-            passedSeconds = 0;
+            logEndExecutionAndResetTime(messageDTO.getSessionId());
         }
 
         return HttpStatus.OK.toString();
@@ -113,11 +109,12 @@ public class MC1Controller {
         simpMessagingTemplate.convertAndSend("/topic/MC2", message);
     }
 
-    private void logEndExecution(long sessionId) {
+    private void logEndExecutionAndResetTime(long sessionId) {
         long count = messageService.getSavedMessagesCountInThisSession(sessionId);
         log.info("End Execution");
         log.info("Execution time: {}", passedSeconds);
         log.info("Messages generated: {}", count);
+        this.passedSeconds = 0;
     }
 
 }
