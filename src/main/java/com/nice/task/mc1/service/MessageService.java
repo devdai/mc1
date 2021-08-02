@@ -15,12 +15,25 @@ public class MessageService {
     @Autowired
     private MessageRepository repository;
 
-    public MessageDTO createMessage() {
-        return new MessageDTO(1, Date.from(Instant.now()), null, null, null);
+    public MessageDTO createMessage(long sessionId) {
+        return new MessageDTO(sessionId, Date.from(Instant.now()), null, null, null);
+    }
+
+    public long getLastSessionId() {
+        Long lastSessionId = repository.findMaxSessionId();
+
+        return lastSessionId == null ? 0 : lastSessionId;
+    }
+
+    public long getSavedMessagesCountInThisSession(long sessionId) {
+        Long count = repository.countAllBySessionId(sessionId);
+
+        return count == null ? 0 : count;
     }
 
     public void saveMessage(MessageDTO dto) {
         Message message = new Message();
+        message.setSessionId(dto.getSessionId());
         message.setMC1_timestamp(dto.getMC1_timestamp());
         message.setMC2_timestamp(dto.getMC2_timestamp());
         message.setMC3_timestamp(dto.getMC3_timestamp());

@@ -17,7 +17,7 @@ public class Message {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
-    private Integer sessionId;
+    private Long sessionId;
     private Date MC1_timestamp;
     private Date MC2_timestamp;
     private Date MC3_timestamp;
