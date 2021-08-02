@@ -15,22 +15,44 @@ public class MessageService {
     @Autowired
     private MessageRepository repository;
 
+    /**
+     * Create new message with given sessionId
+     *
+     * @param sessionId session id
+     * @return new MessageDTO with current timestamp for MC1
+     */
     public MessageDTO createMessage(long sessionId) {
         return new MessageDTO(sessionId, Date.from(Instant.now()), null, null, null);
     }
 
+    /**
+     * Get last session id
+     *
+     * @return 0 if null or actual value
+     */
     public long getLastSessionId() {
         Long lastSessionId = repository.findMaxSessionId();
 
         return lastSessionId == null ? 0 : lastSessionId;
     }
 
+    /**
+     * Calculate inserted messages in this session (for logging purposes)
+     *
+     * @param sessionId id
+     * @return count of inserted messages
+     */
     public long getSavedMessagesCountInThisSession(long sessionId) {
         Long count = repository.countAllBySessionId(sessionId);
 
         return count == null ? 0 : count;
     }
 
+    /**
+     * Create and save new Message entity from given MessageDTO
+     *
+     * @param dto MessageDTO
+     */
     public void saveMessage(MessageDTO dto) {
         Message message = new Message();
         message.setSessionId(dto.getSessionId());

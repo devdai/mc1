@@ -1,8 +1,11 @@
 package com.nice.task.mc1.controller;
 
 import com.nice.task.mc1.dto.MessageDTO;
+import com.nice.task.mc1.entity.InterruptedSession;
+import com.nice.task.mc1.repository.InterruptedSessionRepository;
 import com.nice.task.mc1.service.MessageService;
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.service.spi.InjectService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -17,6 +20,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 
 @RestController
 @Slf4j
@@ -25,6 +30,7 @@ public class MC1Controller {
     @Value("${message.rotation.interval.seconds}")
     private long rotationInterval;
     private long passedSeconds = 0;
+    private Thread currentExecution;
 
     @Autowired
     private SimpMessagingTemplate simpMessagingTemplate;
@@ -32,8 +38,12 @@ public class MC1Controller {
     @Autowired
     private MessageService messageService;
 
+    @Autowired
+    private InterruptedSessionRepository sessionRepository;
+
     /**
-     * Manually start execution
+     * Start execution. Before creating new message, check for last session Id and increment
+     * MessageService takes care about nullable result
      */
     @GetMapping("/start")
     public void startExecution() {
@@ -43,15 +53,28 @@ public class MC1Controller {
     }
 
     /**
-     * Manually stop execution
+     * Manually stop execution. Simply create an instance of InterruptedSession entity,
+     * set current running session's Id, mark as interrupted and save to DB.
+     * Now on the next iteration of creating messages will find this entity and stop execution
      */
     @GetMapping("/stop")
     public void stopExecution() {
-        //stop
+        long sessionId = messageService.getLastSessionId();
+        InterruptedSession session = new InterruptedSession();
+        session.setSessionId(sessionId);
+        session.setInterrupted(true);
+        sessionRepository.save(session);
     }
 
     /**
-     * Receive message from MC3, log execution details and save it to DB
+     * Receive message from MC3, log execution details and save it to DB.
+     * Execute createAndSendMessage `rotationInterval` seconds (the amount of seconds in config file)
+     *
+     * Also there is a check that session is not interrupted, before starting new message -
+     * as it could be stopped manually through /stop endpoint.
+     *
+     * I think this approach with additional entity *InterruptedSession* is much better than
+     * sending *interrupt* event or (omg) forcibly stopping the running Thread.
      *
      * @param messageDTO message body
      * @return HttpMethod.Ok
@@ -65,13 +88,17 @@ public class MC1Controller {
         passedSeconds += executionTime.toSeconds();
 
         if (passedSeconds < rotationInterval) {
-            createAndSendMessage(messageDTO.getSessionId());
+            InterruptedSession session = sessionRepository.findInterruptedSessionBySessionId(messageDTO.getSessionId());
+
+            //if InterruptedSession entity exists and it is marked as interrupted, just log end execution
+            if (session != null && session.isInterrupted()) {
+                logEndExecution(messageDTO.getSessionId());
+            } else {
+                createAndSendMessage(messageDTO.getSessionId());
+            }
         }
         if (passedSeconds >= rotationInterval) {
-            long count = messageService.getSavedMessagesCountInThisSession(messageDTO.getSessionId());
-            log.info("End Execution");
-            log.info("Execution time: {}", rotationInterval);
-            log.info("Messages generated: {}", count);
+            logEndExecution(messageDTO.getSessionId());
             passedSeconds = 0;
         }
 
@@ -86,5 +113,11 @@ public class MC1Controller {
         simpMessagingTemplate.convertAndSend("/topic/MC2", message);
     }
 
+    private void logEndExecution(long sessionId) {
+        long count = messageService.getSavedMessagesCountInThisSession(sessionId);
+        log.info("End Execution");
+        log.info("Execution time: {}", passedSeconds);
+        log.info("Messages generated: {}", count);
+    }
 
 }
