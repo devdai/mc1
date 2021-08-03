@@ -25,8 +25,8 @@ public class MC1Controller {
 
     @Value("${message.rotation.interval.seconds}")
     private long rotationInterval;
+
     private long passedSeconds = 0;
-    private Thread currentExecution;
 
     @Autowired
     private SimpMessagingTemplate simpMessagingTemplate;
