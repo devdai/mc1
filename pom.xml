@@ -11,7 +11,7 @@
     <groupId>com.nice.task</groupId>
     <artifactId>MC1</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <packaging>jar</packaging>
+    <packaging>war</packaging>
     <name>MC1</name>
     <description>Microservice 1. Start point</description>
     <properties>
@@ -69,6 +69,7 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
+                    <finalName>mc1</finalName>
                     <excludes>
                         <exclude>
                             <groupId>org.projectlombok</groupId>

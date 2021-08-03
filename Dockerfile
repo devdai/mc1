@@ -1,13 +1,7 @@
-FROM adoptopenjdk/openjdk11
-COPY target/MC1-0.0.1-SNAPSHOT.jar MC1.jar
+FROM tomcat:latest
 
-USER root
-RUN apt-get update && apt-get install -y wget
+ENV CATALINA_OPTS="-Xms1024m -Xmx4096m -XX:MetaspaceSize=512m -XX:MaxMetaspaceSize=512m -Xss512k"
 
-USER root
-# Add docker-compose-wait tool -------------------
-ENV WAIT_VERSION 2.7.2
-ADD https://github.com/ufoscout/docker-compose-wait/releases/download/$WAIT_VERSION/wait /wait
-RUN chmod +x /wait
+COPY target/mc1.war /usr/local/tomcat/webapps/mc1.war
 
-CMD ["java","-jar","/MC1.jar"]
+CMD ["catalina.sh", "run"]
